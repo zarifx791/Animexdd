@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
+// Render terminates HTTPS at its proxy; trust it so secure session cookies work.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 // Default credentials for first-time setup. Keep the GitHub repository PRIVATE.
 // You can later override both values using Render Environment Variables.
@@ -48,7 +50,11 @@ const adminOnly = (req,res,next) => req.session && req.session.isAdmin ? next() 
 app.get('/api/episodes', (_req,res) => res.json(readEpisodes().filter(e=>e.published)));
 app.post('/api/admin/login', (req,res) => {
   if (req.body && req.body.password === ADMIN_PASSWORD) {
-    req.session.isAdmin = true; return res.json({ok:true});
+    req.session.isAdmin = true;
+    return req.session.save(err => {
+      if (err) return res.status(500).json({error:'Could not save admin session. Please try again.'});
+      res.json({ok:true});
+    });
   }
   res.status(401).json({error:'Wrong password.'});
 });
