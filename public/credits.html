@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Credits & Copyright — Animexd</title>
+<style>
+:root{color-scheme:dark;--bg:#090b12;--panel:#141824;--line:#282e40;--text:#f4f6ff;--muted:#a9b0c5;--accent:#8b5cf6}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1c1740 0,#090b12 48%);color:var(--text);font:16px system-ui,Arial,sans-serif}a{color:inherit}header{padding:20px max(18px,calc((100% - 1050px)/2));border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.logo{font-size:25px;font-weight:900;text-decoration:none}.logo span{color:#a78bfa}.nav{border:1px solid #4b426e;border-radius:12px;padding:9px 13px;text-decoration:none}.wrap{max-width:1050px;margin:auto;padding:28px 18px 55px}h1{font-size:clamp(28px,5vw,44px);margin:0 0 8px}h2{margin:0 0 10px}.muted{color:var(--muted);line-height:1.55}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;margin:22px 0 30px}.card{border:1px solid var(--line);border-radius:17px;overflow:hidden;background:linear-gradient(160deg,#191e2d,#11141e)}.thumb{min-height:135px;padding:20px;display:flex;align-items:end;background:linear-gradient(135deg,#392a68,#172b3c);font-size:22px;font-weight:850}.body{padding:15px}.body p{color:var(--muted);font-size:14px;line-height:1.5}.btn{display:inline-block;border:0;border-radius:10px;padding:10px 13px;background:var(--accent);color:white;font-weight:700;text-decoration:none;cursor:pointer}.panel{border:1px solid var(--line);background:#141824dd;border-radius:17px;padding:20px;margin:18px 0}.detail{display:none}.detail.show{display:block}.row{padding:9px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}.label{color:#c4b5fd;font-weight:750}.contact{color:#c4b5fd;overflow-wrap:anywhere}footer{text-align:center;color:var(--muted);padding:25px;border-top:1px solid var(--line);font-size:13px}
+</style></head><body>
+<header><a class="logo" href="/">Anime<span>xd</span></a><a class="nav" href="/">← Back to episodes</a></header>
+<main class="wrap">
+<h1>Credits & Copyright</h1>
+<p class="muted">A place to recognize anime creators, writers, animation studios and production teams. Select a title to view its credits and tribute.</p>
+<div class="grid" id="cards"></div>
+<section class="panel detail" id="detail" aria-live="polite">
+<h2 id="dtitle">Anime credits</h2><p class="muted" id="dsubtitle"></p>
+<div class="row"><span class="label">Original creator / writer:</span> <span id="dwriter"></span></div>
+<div class="row"><span class="label">Animation studio:</span> <span id="dstudio"></span></div>
+<div class="row"><span class="label">Director / production:</span> <span id="ddirector"></span></div>
+<div class="row"><span class="label">Tribute:</span><p id="dtribute" class="muted"></p></div>
+<p class="muted">These credits are for recognition only. Animexd does not claim ownership of these titles. Credit does not mean that Animexd has permission to distribute, stream, dub or offer downloads of the work.</p>
+</section>
+<section class="panel">
+<h2>Copyright notice & contact</h2>
+<p class="muted">Animexd respects the rights of anime creators, writers, studios and copyright owners. If you believe content on this website infringes your copyright or is being distributed without permission, please contact us with the exact page or episode link, your name and a brief explanation of your rights. We will review the request and take appropriate action, including removing content where warranted.</p>
+<p class="muted">For copyright complaints and removal requests:</p>
+<a class="contact" href="mailto:zerogaming990776@gmail.com">zerogaming990776@gmail.com</a>
+<p class="muted">Please note: this notice and the credits shown here do not replace a distribution licence or legal permission.</p>
+</section>
+</main><footer>Animexd · Credits & Copyright</footer>
+<script>
+const titles=[
+{title:"Naruto",sub:"Japanese anime series",writer:"Masashi Kishimoto (original manga creator)",studio:"Studio Pierrot",director:"Hayato Date (original anime series director)",tribute:"Thank you to the creator, artists, animators, voice cast and production team for bringing this story to life."},
+{title:"One Piece",sub:"Japanese anime series",writer:"Eiichiro Oda (original manga creator)",studio:"Toei Animation",director:"Series has multiple directors across its run",tribute:"With respect to the original creator and all artists and crew who have worked on this long-running adventure."},
+{title:"Dragon Ball",sub:"Japanese anime franchise",writer:"Akira Toriyama (original creator)",studio:"Toei Animation (many classic anime adaptations)",director:"Different directors across series and films",tribute:"In tribute to Akira Toriyama and the many artists and production teams behind the franchise."},
+{title:"Demon Slayer: Kimetsu no Yaiba",sub:"Japanese anime series",writer:"Koyoharu Gotouge (original manga creator)",studio:"ufotable",director:"Haruo Sotozaki (TV anime director)",tribute:"Thank you to the original creator and production team for their storytelling and animation work."},
+{title:"Doraemon",sub:"Japanese anime franchise",writer:"Fujiko F. Fujio (creator name used by Hiroshi Fujimoto and Motoo Abiko; franchise history varies by work)",studio:"Shin-Ei Animation (many modern anime adaptations)",director:"Varies by series and film",tribute:"With appreciation for the creators and teams who have helped generations enjoy Doraemon."},
+{title:"Crayon Shin-chan",sub:"Japanese anime series",writer:"Yoshito Usui (original manga creator)",studio:"Shin-Ei Animation",director:"Multiple directors across the series",tribute:"Tribute to the original creator, animators, writers, voice cast and production staff."}
+];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cards=document.querySelector('#cards');
+cards.innerHTML=titles.map((a,i)=>'<article class="card"><div class="thumb">✦ '+esc(a.title)+'</div><div class="body"><strong>'+esc(a.title)+'</strong><p>'+esc(a.sub)+'</p><button class="btn" data-i="'+i+'">View credits & tribute</button></div></article>').join('');
+cards.addEventListener('click',e=>{const b=e.target.closest('button[data-i]');if(!b)return;const a=titles[+b.dataset.i];document.querySelector('#dtitle').textContent=a.title+' — Credits & Tribute';document.querySelector('#dsubtitle').textContent=a.sub;document.querySelector('#dwriter').textContent=a.writer;document.querySelector('#dstudio').textContent=a.studio;document.querySelector('#ddirector').textContent=a.director;document.querySelector('#dtribute').textContent=a.tribute;const d=document.querySelector('#detail');d.classList.add('show');d.scrollIntoView({behavior:'smooth',block:'start'})});
+</script></body></html>
