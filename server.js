@@ -47,6 +47,31 @@ const upload = multer({
 });
 const adminOnly = (req,res,next) => req.session && req.session.isAdmin ? next() : res.status(401).json({error:'Please log in as admin.'});
 
+
+const SERIES_DB = path.join(DATA_DIR, 'series.json');
+if (!fs.existsSync(SERIES_DB)) fs.writeFileSync(SERIES_DB, '[]');
+const readSeries = () => { try { return JSON.parse(fs.readFileSync(SERIES_DB,'utf8')); } catch { return []; } };
+const writeSeries = items => fs.writeFileSync(SERIES_DB, JSON.stringify(items,null,2));
+app.get('/api/anime', (_req,res) => res.json(readSeries()));
+app.get('/api/anime/:id', (req,res) => {
+  const item = readSeries().find(x => x.id === req.params.id);
+  if (!item) return res.status(404).json({error:'Anime not found.'});
+  res.json({...item, episodes: readEpisodes().filter(e => e.seriesId === item.id && e.published)});
+});
+app.post('/api/admin/anime', adminOnly, (req,res) => {
+  const title = String(req.body.title || '').trim();
+  if (!title) return res.status(400).json({error:'Anime title is required.'});
+  const all = readSeries();
+  const item = {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:title.slice(0,160),poster:String(req.body.poster||'').trim().slice(0,1000),overview:String(req.body.overview||'').trim().slice(0,3000),year:String(req.body.year||'').slice(0,10),studio:String(req.body.studio||'').trim().slice(0,160),writer:String(req.body.writer||'').trim().slice(0,160),genre:String(req.body.genre||'').trim().slice(0,300),language:String(req.body.language||'').trim().slice(0,100),screenshots:String(req.body.screenshots||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean).slice(0,8),createdAt:new Date().toISOString()};
+  all.unshift(item); writeSeries(all); res.json(item);
+});
+app.delete('/api/admin/anime/:id', adminOnly, (req,res) => {
+  const all = readSeries();
+  if (!all.some(x=>x.id===req.params.id)) return res.status(404).json({error:'Anime not found.'});
+  writeSeries(all.filter(x=>x.id!==req.params.id));
+  writeEpisodes(readEpisodes().map(e=>e.seriesId===req.params.id?{...e,seriesId:''}:e)); res.json({ok:true});
+});
+
 app.get('/api/episodes', (_req,res) => res.json(readEpisodes().filter(e=>e.published)));
 app.post('/api/admin/login', (req,res) => {
   if (req.body && req.body.password === ADMIN_PASSWORD) {
@@ -70,6 +95,7 @@ app.post('/api/admin/episodes', adminOnly, upload.single('video'), (req,res) => 
     id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
     title: title.slice(0,160),
     description: String(req.body.description || '').slice(0,2000),
+    seriesId: String(req.body.seriesId || '').trim().slice(0,100),
     videoUrl: req.file ? '/uploads/' + req.file.filename : String(req.body.videoUrl || '').trim(),
     published: req.body.published !== 'false',
     createdAt: new Date().toISOString()
