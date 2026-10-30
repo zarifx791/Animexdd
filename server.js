@@ -10,8 +10,8 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 // Default credentials for first-time setup. Keep the GitHub repository PRIVATE.
 // You can later override both values using Render Environment Variables.
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'AnimeXD@2026';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'Animexd-session-secret-change-this-2026-10';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const SESSION_SECRET = process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 fs.mkdirSync(DATA_DIR, {recursive:true});
@@ -27,6 +27,11 @@ app.use(session({
   resave: false, saveUninitialized: false,
   cookie: { httpOnly:true, sameSite:'lax', secure: process.env.NODE_ENV === 'production', maxAge: 8*60*60*1000 }
 }));
+// Private admin page: keep its HTML outside /public and expose it only at this unlisted route.
+const ADMIN_ROUTE = process.env.ADMIN_ROUTE || '/manage-animexd-7f3c9b2d';
+app.get('/admin.html', (_req,res) => res.status(404).send('Not found'));
+app.get(ADMIN_ROUTE, (_req,res) => res.sendFile(path.join(__dirname,'private-admin.html')));
+
 app.use(express.static(path.join(__dirname,'public')));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
@@ -74,6 +79,7 @@ app.delete('/api/admin/anime/:id', adminOnly, (req,res) => {
 
 app.get('/api/episodes', (_req,res) => res.json(readEpisodes().filter(e=>e.published)));
 app.post('/api/admin/login', (req,res) => {
+  if (!ADMIN_PASSWORD) return res.status(503).json({error:'Admin password is not configured. Set ADMIN_PASSWORD in the hosting environment.'});
   if (req.body && req.body.password === ADMIN_PASSWORD) {
     req.session.isAdmin = true;
     return req.session.save(err => {
