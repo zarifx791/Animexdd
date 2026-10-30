@@ -27,6 +27,11 @@ app.use(session({
   resave: false, saveUninitialized: false,
   cookie: { httpOnly:true, sameSite:'lax', secure: process.env.NODE_ENV === 'production', maxAge: 8*60*60*1000 }
 }));
+// Private admin page: keep its HTML outside /public and expose it only at this unlisted route.
+const ADMIN_ROUTE = process.env.ADMIN_ROUTE || '/manage-animexd-7f3c9b2d';
+app.get('/admin.html', (_req,res) => res.status(404).send('Not found'));
+app.get(ADMIN_ROUTE, (_req,res) => res.sendFile(path.join(__dirname,'private-admin.html')));
+
 app.use(express.static(path.join(__dirname,'public')));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
