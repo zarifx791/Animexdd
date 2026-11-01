@@ -103,10 +103,13 @@ app.post('/api/admin/episodes', adminOnly, upload.single('video'), (req,res) => 
     description: String(req.body.description || '').slice(0,2000),
     seriesId: String(req.body.seriesId || '').trim().slice(0,100),
     videoUrl: req.file ? '/uploads/' + req.file.filename : String(req.body.videoUrl || '').trim(),
+    videoProvider: req.file ? 'local-upload' : String(req.body.videoProvider || 'direct').slice(0,30),
+    videoMode: req.file ? 'direct' : (req.body.videoMode === 'embed' ? 'embed' : 'direct'),
     published: req.body.published !== 'false',
     createdAt: new Date().toISOString()
   };
-  if (!item.videoUrl) return res.status(400).json({error:'Upload a video or provide a direct video URL.'});
+  if (!item.videoUrl) return res.status(400).json({error:'Upload a video or provide a video URL.'});
+  if (!req.file && !item.videoUrl.startsWith('https://')) return res.status(400).json({error:'Use a secure HTTPS video or embed URL.'});
   const all = readEpisodes(); all.unshift(item); writeEpisodes(all); res.json(item);
 });
 app.patch('/api/admin/episodes/:id', adminOnly, (req,res) => {
