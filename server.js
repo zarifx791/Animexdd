@@ -52,6 +52,17 @@ const upload = multer({
 });
 const adminOnly = (req,res,next) => req.session && req.session.isAdmin ? next() : res.status(401).json({error:'Please log in as admin.'});
 
+const imageUpload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 9 },
+  fileFilter: (_req, file, cb) => {
+    if (/^image\/(jpeg|png|webp|gif|avif)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error('Choose JPG, PNG, WEBP, GIF or AVIF images only.'));
+  }
+});
+const imagePath = file => file ? '/uploads/' + file.filename : '';
+
+
 
 const SERIES_DB = path.join(DATA_DIR, 'series.json');
 if (!fs.existsSync(SERIES_DB)) fs.writeFileSync(SERIES_DB, '[]');
@@ -63,11 +74,18 @@ app.get('/api/anime/:id', (req,res) => {
   if (!item) return res.status(404).json({error:'Anime not found.'});
   res.json({...item, episodes: readEpisodes().filter(e => e.seriesId === item.id && e.published)});
 });
-app.post('/api/admin/anime', adminOnly, (req,res) => {
+app.post('/api/admin/anime', adminOnly, imageUpload.fields([{name:'posterFile',maxCount:1},{name:'screenshotFiles',maxCount:8}]), (req,res) => {
   const title = String(req.body.title || '').trim();
-  if (!title) return res.status(400).json({error:'Anime title is required.'});
+  const files = [...(req.files?.posterFile || []), ...(req.files?.screenshotFiles || [])];
+  if (!title) {
+    files.forEach(file => { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); });
+    return res.status(400).json({error:'Anime title is required.'});
+  }
   const all = readSeries();
-  const item = {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:title.slice(0,160),poster:String(req.body.poster||'').trim().slice(0,1000),overview:String(req.body.overview||'').trim().slice(0,3000),year:String(req.body.year||'').slice(0,10),studio:String(req.body.studio||'').trim().slice(0,160),writer:String(req.body.writer||'').trim().slice(0,160),genre:String(req.body.genre||'').trim().slice(0,300),language:String(req.body.language||'').trim().slice(0,100),screenshots:String(req.body.screenshots||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean).slice(0,8),createdAt:new Date().toISOString()};
+  const uploadedPoster = imagePath(req.files?.posterFile?.[0]);
+  const uploadedScreenshots = (req.files?.screenshotFiles || []).map(imagePath);
+  const screenshotUrls = String(req.body.screenshots || '').split(/\\n|,/).map(x=>x.trim()).filter(Boolean);
+  const item = {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:title.slice(0,160),poster:(uploadedPoster || String(req.body.poster||'').trim()).slice(0,1000),overview:String(req.body.overview||'').trim().slice(0,3000),year:String(req.body.year||'').slice(0,10),studio:String(req.body.studio||'').trim().slice(0,160),writer:String(req.body.writer||'').trim().slice(0,160),genre:String(req.body.genre||'').trim().slice(0,300),language:String(req.body.language||'').trim().slice(0,100),screenshots:[...uploadedScreenshots,...screenshotUrls].slice(0,8),createdAt:new Date().toISOString()};
   all.unshift(item); writeSeries(all); res.json(item);
 });
 app.delete('/api/admin/anime/:id', adminOnly, (req,res) => {
