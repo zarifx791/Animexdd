@@ -56,7 +56,7 @@ const imageUpload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024, files: 9 },
   fileFilter: (_req, file, cb) => {
-    if (/^image\\/(jpeg|png|webp|gif|avif)$/.test(file.mimetype)) cb(null, true);
+    if (/^image\/(jpeg|png|webp|gif|avif)$/.test(file.mimetype)) cb(null, true);
     else cb(new Error('Choose JPG, PNG, WEBP, GIF or AVIF images only.'));
   }
 });
