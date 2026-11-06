@@ -2,151 +2,241 @@ const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const crypto = require('crypto');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-// Render terminates HTTPS at its proxy; trust it so secure session cookies work.
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
-// Default credentials for first-time setup. Keep the GitHub repository PRIVATE.
-// You can later override both values using Render Environment Variables.
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-const SESSION_SECRET = process.env.SESSION_SECRET || require('crypto').randomBytes(32).toString('hex');
-const DATA_DIR = path.join(__dirname, 'data');
-const UPLOAD_DIR = path.join(__dirname, 'uploads');
-fs.mkdirSync(DATA_DIR, {recursive:true});
-fs.mkdirSync(UPLOAD_DIR, {recursive:true});
-const DB = path.join(DATA_DIR, 'episodes.json');
-if (!fs.existsSync(DB)) fs.writeFileSync(DB, '[]');
-const readEpisodes = () => { try { return JSON.parse(fs.readFileSync(DB,'utf8')); } catch { return []; } };
-const writeEpisodes = items => fs.writeFileSync(DB, JSON.stringify(items,null,2));
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const BUCKET = 'animexd-media';
 
-app.use(express.json({limit:'2mb'}));
-app.use(session({
-  secret: SESSION_SECRET || 'change-this-before-deploying',
-  resave: false, saveUninitialized: false,
-  cookie: { httpOnly:true, sameSite:'lax', secure: process.env.NODE_ENV === 'production', maxAge: 8*60*60*1000 }
-}));
-// Private admin page: keep its HTML outside /public and expose it only at this unlisted route.
-const ADMIN_ROUTE = process.env.ADMIN_ROUTE || '/manage-animexd-7f3c9b2d';
-app.get('/admin.html', (_req,res) => res.status(404).send('Not found'));
-app.get(ADMIN_ROUTE, (_req,res) => res.sendFile(path.join(__dirname,'private-admin.html')));
-
-app.use(express.static(path.join(__dirname,'public')));
-app.use('/uploads', express.static(UPLOAD_DIR));
-
-const storage = multer.diskStorage({
-  destination: (_req,_file,cb) => cb(null, UPLOAD_DIR),
-  filename: (_req,file,cb) => {
-    const ext = path.extname(file.originalname).slice(0,12).replace(/[^a-zA-Z0-9.]/g,'');
-    cb(null, Date.now() + '-' + Math.random().toString(36).slice(2,8) + ext);
-  }
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variable.');
+  process.exit(1);
+}
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
 });
-const upload = multer({
-  storage,
-  limits: {fileSize: 1024*1024*1024},
-  fileFilter: (_req,file,cb) => {
-    if (file.mimetype.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.originalname)) cb(null,true);
+
+app.use(express.json({ limit: '2mb' }));
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 8 *  60 * 60 * 1000 }
+}));
+
+const ADMIN_ROUTE = process.env.ADMIN_ROUTE || '/manage-animexd-7f3c9b2d';
+app.get('/admin.html', (_req, res) => res.status(404).send('Not found'));
+app.get(ADMIN_ROUTE, (_req, res) => res.sendFile(path.join(__dirname, 'private-admin.html')));
+app.use(express.static(path.join(__dirname, 'public')));
+
+const adminOnly = (req, res, next) =>
+  req.session && req.session.isAdmin ? next() : res.status(401).json({ error: 'Please log in as admin.' });
+
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.originalname)) cb(null, true);
     else cb(new Error('Video file only (MP4, WEBM, MOV).'));
   }
 });
-const adminOnly = (req,res,next) => req.session && req.session.isAdmin ? next() : res.status(401).json({error:'Please log in as admin.'});
-
 const imageUpload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024, files: 9 },
   fileFilter: (_req, file, cb) => {
     if (/^image\/(jpeg|png|webp|gif|avif)$/.test(file.mimetype)) cb(null, true);
     else cb(new Error('Choose JPG, PNG, WEBP, GIF or AVIF images only.'));
   }
 });
-const imagePath = file => file ? '/uploads/' + file.filename : '';
 
-
-
-const SERIES_DB = path.join(DATA_DIR, 'series.json');
-if (!fs.existsSync(SERIES_DB)) fs.writeFileSync(SERIES_DB, '[]');
-const readSeries = () => { try { return JSON.parse(fs.readFileSync(SERIES_DB,'utf8')); } catch { return []; } };
-const writeSeries = items => fs.writeFileSync(SERIES_DB, JSON.stringify(items,null,2));
-app.get('/api/anime', (_req,res) => res.json(readSeries()));
-app.get('/api/anime/:id', (req,res) => {
-  const item = readSeries().find(x => x.id === req.params.id);
-  if (!item) return res.status(404).json({error:'Anime not found.'});
-  res.json({...item, episodes: readEpisodes().filter(e => e.seriesId === item.id && e.published)});
-});
-app.post('/api/admin/anime', adminOnly, imageUpload.fields([{name:'posterFile',maxCount:1},{name:'screenshotFiles',maxCount:8}]), (req,res) => {
-  const title = String(req.body.title || '').trim();
-  const files = [...(req.files?.posterFile || []), ...(req.files?.screenshotFiles || [])];
-  if (!title) {
-    files.forEach(file => { if (fs.existsSync(file.path)) fs.unlinkSync(file.path); });
-    return res.status(400).json({error:'Anime title is required.'});
+function extOf(name) {
+  return path.extname(name || '').slice(0, 10).toLowerCase().replace(/[^a-z0-9.]/g, '') || '.bin';
+}
+async function uploadObject(file, folder) {
+  const objectPath = folder + '/' + crypto.randomUUID() + extOf(file.originalname);
+  const { error } = await supabase.storage.from(BUCKET).upload(objectPath, file.buffer, {
+    contentType: file.mimetype || 'application/octet-stream',
+    upsert: false
+  });
+  if (error) throw error;
+  return 'storage://' + objectPath;
+}
+async function publicUrl(value) {
+  if (!value || typeof value !== 'string' || !value.startsWith('storage://')) return value || '';
+  const objectPath = value.slice('storage://'.length);
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(objectPath, 60 * 60);
+  if (error) {
+    console.error('Could not sign storage URL:', error.message);
+    return '';
   }
-  const all = readSeries();
-  const uploadedPoster = imagePath(req.files?.posterFile?.[0]);
-  const uploadedScreenshots = (req.files?.screenshotFiles || []).map(imagePath);
-  const screenshotUrls = String(req.body.screenshots || '').split(/\\n|,/).map(x=>x.trim()).filter(Boolean);
-  const item = {id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:title.slice(0,160),poster:(uploadedPoster || String(req.body.poster||'').trim()).slice(0,1000),overview:String(req.body.overview||'').trim().slice(0,3000),year:String(req.body.year||'').slice(0,10),studio:String(req.body.studio||'').trim().slice(0,160),writer:String(req.body.writer||'').trim().slice(0,160),genre:String(req.body.genre||'').trim().slice(0,300),language:String(req.body.language||'').trim().slice(0,100),screenshots:[...uploadedScreenshots,...screenshotUrls].slice(0,8),createdAt:new Date().toISOString()};
-  all.unshift(item); writeSeries(all); res.json(item);
+  return data.signedUrl;
+}
+async function presentAnime(row) {
+  const shots = Array.isArray(row.screenshots) ? row.screenshots : [];
+  return {
+    id: row.id, title: row.title, poster: await publicUrl(row.poster),
+    overview: row.overview || '', year: row.year || '', studio: row.studio || '',
+    writer: row.writer || '', genre: row.genre || '', language: row.language || '',
+    screenshots: await Promise.all(shots.map(publicUrl)), createdAt: row.created_at
+  };
+}
+async function presentEpisode(row) {
+  const url = await publicUrl(row.video_url);
+  return {
+    id: row.id, title: row.title, description: row.description || '',
+    seriesId: row.series_id || '', videoUrl: url, downloadUrl: url,
+    videoProvider: row.video_provider || 'direct', videoMode: row.video_mode || 'direct',
+    published: row.published, createdAt: row.created_at
+  };
+}
+async function getAnimeRows() {
+  const { data, error } = await supabase.from('anime_series').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+async function getEpisodeRows(publishedOnly = false) {
+  let query = supabase.from('episodes').select('*').order('created_at', { ascending: false });
+  if (publishedOnly) query = query.eq('published', true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+const newId = () => Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
+
+app.get('/api/anime', async (_req, res, next) => {
+  try { res.json(await Promise.all((await getAnimeRows()).map(presentAnime))); }
+  catch (e) { next(e); }
 });
-app.delete('/api/admin/anime/:id', adminOnly, (req,res) => {
-  const all = readSeries();
-  if (!all.some(x=>x.id===req.params.id)) return res.status(404).json({error:'Anime not found.'});
-  writeSeries(all.filter(x=>x.id!==req.params.id));
-  writeEpisodes(readEpisodes().map(e=>e.seriesId===req.params.id?{...e,seriesId:''}:e)); res.json({ok:true});
+app.get('/api/anime/:id', async (req, res, next) => {
+  try {
+    const { data, error } = await supabase.from('anime_series').select('*').eq('id', req.params.id).maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Anime not found.' });
+    const { data: eps, error: epError } = await supabase.from('episodes').select('*')
+      .eq('series_id', req.params.id).eq('published', true).order('created_at', { ascending: false });
+    if (epError) throw epError;
+    res.json({ ...(await presentAnime(data)), episodes: await Promise.all((eps || []).map(presentEpisode)) });
+  } catch (e) { next(e); }
 });
 
-app.get('/api/episodes', (_req,res) => res.json(readEpisodes().filter(e=>e.published)));
-app.post('/api/admin/login', (req,res) => {
-  if (!ADMIN_PASSWORD) return res.status(503).json({error:'Admin password is not configured. Set ADMIN_PASSWORD in the hosting environment.'});
+app.post('/api/admin/anime', adminOnly,
+  imageUpload.fields([{ name: 'posterFile', maxCount: 1 }, { name: 'screenshotFiles', maxCount: 8 }]),
+  async (req, res, next) => {
+    try {
+      const title = String(req.body.title || '').trim();
+      if (!title) return res.status(400).json({ error: 'Anime title is required.' });
+      const id = newId();
+      let poster = String(req.body.poster || '').trim().slice(0, 1000);
+      if (req.files?.posterFile?.[0]) poster = await uploadObject(req.files.posterFile[0], 'anime/' + id + '/poster');
+      const uploadedShots = await Promise.all((req.files?.screenshotFiles || []).map(f => uploadObject(f, 'anime/' + id + '/screenshots')));
+      const typedShots = String(req.body.screenshots || '').split(/\n|,/).map(x => x.trim()).filter(Boolean);
+      const row = {
+        id, title: title.slice(0, 160), poster,
+        overview: String(req.body.overview || '').trim().slice(0, 3000),
+        year: String(req.body.year || '').slice(0, 10),
+        studio: String(req.body.studio || '').trim().slice(0, 160),
+        writer: String(req.body.writer || '').trim().slice(0, 160),
+        genre: String(req.body.genre || '').trim().slice(0, 300),
+        language: String(req.body.language || '').trim().slice(0, 100),
+        screenshots: [...uploadedShots, ...typedShots].slice(0, 8)
+      };
+      const { data, error } = await supabase.from('anime_series').insert(row).select().single();
+      if (error) throw error;
+      res.json(await presentAnime(data));
+    } catch (e) { next(e); }
+  });
+
+app.delete('/api/admin/anime/:id', adminOnly, async (req, res, next) => {
+  try {
+    const { data, error } = await supabase.from('anime_series').delete().eq('id', req.params.id).select('id');
+    if (error) throw error;
+    if (!data?.length) return res.status(404).json({ error: 'Anime not found.' });
+    // Schema uses ON DELETE SET NULL, so episodes remain as standalone items.
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+app.get('/api/episodes', async (_req, res, next) => {
+  try { res.json(await Promise.all((await getEpisodeRows(true)).map(presentEpisode))); }
+  catch (e) { next(e); }
+});
+app.post('/api/admin/login', (req, res) => {
+  if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Admin password is not configured. Set ADMIN_PASSWORD in the hosting environment.' });
   if (req.body && req.body.password === ADMIN_PASSWORD) {
     req.session.isAdmin = true;
     return req.session.save(err => {
-      if (err) return res.status(500).json({error:'Could not save admin session. Please try again.'});
-      res.json({ok:true});
+      if (err) return res.status(500).json({ error: 'Could not save admin session. Please try again.' });
+      res.json({ ok: true });
     });
   }
-  res.status(401).json({error:'Wrong password.'});
+  res.status(401).json({ error: 'Wrong password.' });
 });
-app.post('/api/admin/logout', adminOnly, (req,res) => req.session.destroy(()=>res.json({ok:true})));
-app.get('/api/admin/episodes', adminOnly, (_req,res) => res.json(readEpisodes()));
-app.post('/api/admin/episodes', adminOnly, upload.single('video'), (req,res) => {
-  const title = String(req.body.title || '').trim();
-  if (!title) {
-    if (req.file) fs.unlinkSync(req.file.path);
-    return res.status(400).json({error:'Episode title is required.'});
-  }
-  const item = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-    title: title.slice(0,160),
-    description: String(req.body.description || '').slice(0,2000),
-    seriesId: String(req.body.seriesId || '').trim().slice(0,100),
-    videoUrl: req.file ? '/uploads/' + req.file.filename : String(req.body.videoUrl || '').trim(),
-    videoProvider: req.file ? 'local-upload' : String(req.body.videoProvider || 'direct').slice(0,30),
-    videoMode: req.file ? 'direct' : (req.body.videoMode === 'embed' ? 'embed' : 'direct'),
-    published: req.body.published !== 'false',
-    createdAt: new Date().toISOString()
-  };
-  if (!item.videoUrl) return res.status(400).json({error:'Upload a video or provide a video URL.'});
-  if (!req.file && !item.videoUrl.startsWith('https://')) return res.status(400).json({error:'Use a secure HTTPS video or embed URL.'});
-  const all = readEpisodes(); all.unshift(item); writeEpisodes(all); res.json(item);
+app.post('/api/admin/logout', adminOnly, (req, res) => req.session.destroy(() => res.json({ ok: true })));
+app.get('/api/admin/episodes', adminOnly, async (_req, res, next) => {
+  try { res.json(await Promise.all((await getEpisodeRows(false)).map(presentEpisode))); }
+  catch (e) { next(e); }
 });
-app.patch('/api/admin/episodes/:id', adminOnly, (req,res) => {
-  const all = readEpisodes(); const item = all.find(e=>e.id===req.params.id);
-  if (!item) return res.status(404).json({error:'Episode not found.'});
-  if (typeof req.body.published === 'boolean') item.published = req.body.published;
-  writeEpisodes(all); res.json(item);
+app.post('/api/admin/episodes', adminOnly, videoUpload.single('video'), async (req, res, next) => {
+  try {
+    const title = String(req.body.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'Episode title is required.' });
+    let videoUrl = String(req.body.videoUrl || '').trim();
+    let provider = String(req.body.videoProvider || 'direct').slice(0, 30);
+    let mode = req.body.videoMode === 'embed' ? 'embed' : 'direct';
+    if (req.file) {
+      videoUrl = await uploadObject(req.file, 'episodes/' + newId());
+      provider = 'supabase-storage';
+      mode = 'direct';
+    }
+    if (!videoUrl) return res.status(400).json({ error: 'Upload a video or provide a video URL.' });
+    if (!videoUrl.startsWith('storage://') && !videoUrl.startsWith('https://'))
+      return res.status(400).json({ error: 'Use a secure HTTPS video or embed URL.' });
+    const row = {
+      id: newId(), title: title.slice(0, 160),
+      description: String(req.body.description || '').slice(0, 2000),
+      series_id: String(req.body.seriesId || '').trim().slice(0, 100) || null,
+      video_url: videoUrl, video_provider: provider, video_mode: mode,
+      published: req.body.published !== 'false'
+    };
+    const { data, error } = await supabase.from('episodes').insert(row).select().single();
+    if (error) throw error;
+    res.json(await presentEpisode(data));
+  } catch (e) { next(e); }
 });
-app.delete('/api/admin/episodes/:id', adminOnly, (req,res) => {
-  const all = readEpisodes(); const item = all.find(e=>e.id===req.params.id);
-  if (!item) return res.status(404).json({error:'Episode not found.'});
-  if (item.videoUrl && item.videoUrl.startsWith('/uploads/')) {
-    const p = path.join(UPLOAD_DIR, path.basename(item.videoUrl));
-    if (fs.existsSync(p)) fs.unlinkSync(p);
-  }
-  writeEpisodes(all.filter(e=>e.id!==req.params.id)); res.json({ok:true});
+app.patch('/api/admin/episodes/:id', adminOnly, async (req, res, next) => {
+  try {
+    const update = {};
+    if (typeof req.body.published === 'boolean') update.published = req.body.published;
+    const { data, error } = await supabase.from('episodes').update(update).eq('id', req.params.id).select().maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Episode not found.' });
+    res.json(await presentEpisode(data));
+  } catch (e) { next(e); }
 });
-app.use((err,_req,res,_next) => {
-  const status = err instanceof multer.MulterError ? 400 : 400;
-  res.status(status).json({error:err.message || 'Request failed.'});
+app.delete('/api/admin/episodes/:id', adminOnly, async (req, res, next) => {
+  try {
+    const { data: item, error: findError } = await supabase.from('episodes').select('video_url').eq('id', req.params.id).maybeSingle();
+    if (findError) throw findError;
+    if (!item) return res.status(404).json({ error: 'Episode not found.' });
+    if (item.video_url?.startsWith('storage://')) {
+      const { error: storageError } = await supabase.storage.from(BUCKET).remove([item.video_url.slice('storage://'.length)]);
+      if (storageError) console.error('Storage cleanup failed:', storageError.message);
+    }
+    const { error } = await supabase.from('episodes').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (e) { next(e); }
 });
-app.listen(PORT, () => console.log(`Animexd running on port ${PORT}`));
+
+app.use((err, _req, res, _next) => {
+  console.error('Request error:', err.message || err);
+  const status = err instanceof multer.MulterError ? 400 : 500;
+  res.status(status).json({ error: err.message || 'Request failed.' });
+});
+app.listen(PORT, () => console.log('Animexd running on port ' + PORT));
