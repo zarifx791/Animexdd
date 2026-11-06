@@ -152,6 +152,21 @@ app.post('/api/admin/anime', adminOnly,
     } catch (e) { next(e); }
   });
 
+app.patch('/api/admin/anime/:id', adminOnly, async (req, res, next) => {
+  try {
+    const allowed = ['title','overview','year','studio','writer','genre','language','poster'];
+    const update = {};
+    for (const key of allowed) {
+      if (typeof req.body[key] === 'string') update[key] = req.body[key].trim().slice(0, key === 'overview' ? 3000 : key === 'genre' ? 300 : key === 'language' ? 100 : 160);
+    }
+    if (update.title !== undefined && !update.title) return res.status(400).json({ error: 'Anime title is required.' });
+    const { data, error } = await supabase.from('anime_series').update(update).eq('id', req.params.id).select().maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Anime not found.' });
+    res.json(await presentAnime(data));
+  } catch (e) { next(e); }
+});
+
 app.delete('/api/admin/anime/:id', adminOnly, async (req, res, next) => {
   try {
     const { data, error } = await supabase.from('anime_series').delete().eq('id', req.params.id).select('id');
@@ -213,6 +228,19 @@ app.patch('/api/admin/episodes/:id', adminOnly, async (req, res, next) => {
   try {
     const update = {};
     if (typeof req.body.published === 'boolean') update.published = req.body.published;
+    if (typeof req.body.title === 'string') {
+      const title = req.body.title.trim().slice(0, 160);
+      if (!title) return res.status(400).json({ error: 'Episode title is required.' });
+      update.title = title;
+    }
+    if (typeof req.body.description === 'string') update.description = req.body.description.trim().slice(0, 2000);
+    if (typeof req.body.videoUrl === 'string') {
+      const videoUrl = req.body.videoUrl.trim();
+      if (!videoUrl.startsWith('https://')) return res.status(400).json({ error: 'Use a secure HTTPS video or embed URL.' });
+      update.video_url = videoUrl;
+      update.video_provider = String(req.body.videoProvider || 'other').slice(0, 30);
+      update.video_mode = req.body.videoMode === 'direct' ? 'direct' : 'embed';
+    }
     const { data, error } = await supabase.from('episodes').update(update).eq('id', req.params.id).select().maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Episode not found.' });
