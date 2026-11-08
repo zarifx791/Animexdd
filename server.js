@@ -290,8 +290,8 @@ app.post('/api/ai-guide', async (req, res) => {
     const bangla = /[\\u0980-\\u09FF]/.test(question) || /ki |kivabe|kothay|dao|bolo|ache|ase|khuj|dekhbo|parbo/i.test(question);
     const counts = new Map();
     for (const ep of episodeRows) if (ep.series_id) counts.set(ep.series_id, (counts.get(ep.series_id) || 0) + 1);
-    const matches = animeRows.filter(a => [a.title,a.genre,a.overview,a.studio].join(' ').toLowerCase().includes(q))
-      .slice(0,6);
+    const terms = q.split(/[^a-z0-9\\u0980-\\u09ff]+/i).filter(t => t.length > 2);
+    const matches = animeRows.map(a => { const hay = [a.title,a.genre,a.overview,a.studio].join(' ').toLowerCase(); const score = hay.includes(q) ? 100 : terms.reduce((n,t) => n + (hay.includes(t) ? 1 : 0), 0); return { a, score }; }).filter(x => x.score > 0).sort((a,b) => b.score-a.score).slice(0,6).map(x => x.a);
     const showList = rows => rows.map(a => '• ' + a.title + (a.genre ? ' — ' + a.genre : '') + ' (' + (counts.get(a.id) || 0) + ' published episode)').join('\\n');
 
     let reply = '';
