@@ -119,7 +119,7 @@ app.get('/api/anime/:id', async (req, res, next) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Anime not found.' });
     const { data: eps, error: epError } = await supabase.from('episodes').select('*')
-      .eq('series_id', req.params.id).eq('published', true).order('created_at', { ascending: false });
+      .eq('series_id', req.params.id).eq('published', true).order('created_at', { ascending: true });
     if (epError) throw epError;
     res.json({ ...(await presentAnime(data)), episodes: await Promise.all((eps || []).map(presentEpisode)) });
   } catch (e) { next(e); }
