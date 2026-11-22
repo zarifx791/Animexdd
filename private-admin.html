@@ -1,7 +1,28 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Animexd Private Admin</title>
 <style>
-:root{color-scheme:dark;--bg:#090b12;--panel:#141824;--line:#282e40;--text:#f4f6ff;--muted:#a9b0c5;--accent:#8b5cf6}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1c1740 0,#090b12 48%);color:var(--text);font:16px system-ui,Arial,sans-serif}header{padding:18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}a{color:#c4b5fd}.logo{font-size:23px;font-weight:900;text-decoration:none}.logo span{color:#a78bfa}.wrap{max-width:850px;margin:auto;padding:24px 16px 60px}.panel{background:#141824;border:1px solid var(--line);border-radius:16px;padding:19px;margin:16px 0}.panel h1,.panel h2{margin-top:0}.field{display:block;margin:13px 0 5px;color:#d9dcef;font-size:14px}input,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid #343b51;background:#0d1019;color:white;font:inherit}input[type=file]{padding:9px}textarea{min-height:75px;resize:vertical}.btn{border:0;border-radius:10px;padding:11px 14px;background:var(--accent);color:white;font-weight:750;cursor:pointer}.btn.alt{background:#293047}.btn.danger{background:#8c3346}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.hint{color:var(--muted);font-size:13px;line-height:1.5}.status{padding:10px;border-radius:10px;background:#20263a;margin:12px 0;display:none;white-space:pre-wrap}.previewGrid{display:flex;gap:9px;flex-wrap:wrap;margin:9px 0}.previewGrid img{width:92px;height:120px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}.episode{border:1px solid var(--line);padding:13px;border-radius:12px;margin:10px 0}.episode h3{margin:0 0 8px;overflow-wrap:anywhere}.pill{font-size:12px;color:#c4b5fd}.hidden{display:none!important}
+:root{color-scheme:dark;--bg:#080912;--panel:rgba(20,23,39,.88);--line:#30344f;--text:#f5f4ff;--muted:#a8acc4;--accent:#9b7bff;--accent2:#5de0d2}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 12% -8%,#30215e 0,transparent 38%),radial-gradient(ellipse at 100% 20%,#102d3c 0,transparent 32%),var(--bg);color:var(--text);font:15px/1.55 Inter,system-ui,Arial,sans-serif}
+header{position:sticky;top:0;z-index:5;padding:15px clamp(14px,4vw,34px);display:flex;justify-content:space-between;align-items:center;gap:12px;background:rgba(8,9,18,.84);backdrop-filter:blur(18px);border-bottom:1px solid #ffffff16}
+a{color:#cfc3ff}.logo{font-size:22px;font-weight:950;letter-spacing:-.8px;text-decoration:none}.logo span{color:var(--accent)}
+.wrap{width:min(1050px,100%);margin:auto;padding:24px clamp(12px,3vw,26px) 64px}
+.panel{background:linear-gradient(145deg,rgba(25,28,47,.96),rgba(14,17,29,.96));border:1px solid var(--line);border-radius:20px;padding:clamp(16px,3vw,25px);margin:17px 0;box-shadow:0 16px 48px #0005}
+.panel h1,.panel h2{margin:0 0 10px;letter-spacing:-.5px}.panel h1{font-size:clamp(22px,4vw,30px)}.panel h2{font-size:21px}
+.field{display:block;margin:15px 0 6px;color:#d9d8ec;font-size:13px;font-weight:700}
+input,textarea,select{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #3a3e5a;background:#0b0e19;color:#fff;font:inherit;outline:none;transition:border-color .18s,box-shadow .18s}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px #9b7bff24}
+input[type=file]{padding:10px}textarea{min-height:82px;resize:vertical}
+.btn{border:1px solid transparent;border-radius:12px;padding:11px 16px;background:linear-gradient(120deg,#8b69f6,#6c55d9);color:white;font-weight:800;cursor:pointer;box-shadow:0 7px 20px #6c55d933;transition:transform .15s,filter .15s}
+.btn:hover{filter:brightness(1.1);transform:translateY(-1px)}.btn:disabled{opacity:.55;cursor:wait;transform:none}
+.btn.alt{background:#252b43;border-color:#414866;box-shadow:none}.btn.danger{background:#8c334c;box-shadow:none}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.hint{color:var(--muted);font-size:13px;line-height:1.65}
+.status{padding:12px 14px;border-radius:12px;background:#20263a;border:1px solid #ffffff14;margin:12px 0;display:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.previewGrid{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.previewGrid img{width:92px;height:120px;object-fit:cover;border-radius:11px;border:1px solid var(--line)}
+.episode{border:1px solid #343953;background:#0e1220;border-radius:15px;padding:15px;margin:12px 0}.episode h3{margin:0 0 8px;overflow-wrap:anywhere}.pill{font-size:12px;color:#c4b5fd}
+.hidden{display:none!important}#loginPanel{max-width:520px;margin:8vh auto}
+#dashboard>.panel:first-child{border-top:2px solid #9b7bff}#bulkUrls{min-height:150px}
+@media(max-width:560px){header{padding:12px}.logo{font-size:19px}.wrap{padding-top:14px}.panel{border-radius:16px;margin:12px 0}.row>.btn{flex:1 1 auto}.episode .row .btn{flex:0 1 auto}}
 </style></head><body><header><a class="logo" href="/">Anime<span>xd</span> / Admin</a><a href="/">View website ↗</a></header><main class="wrap">
 <section class="panel" id="loginPanel"><h1>Private Admin Login</h1><p class="hint">Only the site administrator should sign in.</p><label class="field" for="password">Admin password</label><input id="password" type="password" autocomplete="current-password" placeholder="Enter admin password"><div class="row" style="margin-top:13px"><button class="btn" id="login">Sign in</button></div><div class="status" id="loginStatus"></div></section>
 <div id="dashboard" class="hidden">
