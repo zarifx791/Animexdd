@@ -8,7 +8,7 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || '').trim();
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -181,9 +181,13 @@ app.get('/api/episodes', async (_req, res, next) => {
   try { res.json(await Promise.all((await getEpisodeRows(true)).map(presentEpisode))); }
   catch (e) { next(e); }
 });
+app.get('/api/admin/status', (_req, res) => {
+  res.json({ passwordConfigured: Boolean(ADMIN_PASSWORD) });
+});
+
 app.post('/api/admin/login', (req, res) => {
   if (!ADMIN_PASSWORD) return res.status(503).json({ error: 'Admin password is not configured. Set ADMIN_PASSWORD in the hosting environment.' });
-  if (req.body && req.body.password === ADMIN_PASSWORD) {
+  if (req.body && String(req.body.password || '').trim() === ADMIN_PASSWORD) {
     req.session.isAdmin = true;
     return req.session.save(err => {
       if (err) return res.status(500).json({ error: 'Could not save admin session. Please try again.' });
