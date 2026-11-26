@@ -22,6 +22,16 @@
 .card{position:relative}.cardLink{display:block}.saveBtn{position:absolute;right:9px;top:9px;z-index:2;width:35px;height:35px;border:1px solid #ffffff55;border-radius:50%;background:#090910c9;color:#fff;font-size:19px;cursor:pointer;backdrop-filter:blur(8px)}.saveBtn.saved{background:#a64f9d;border-color:#f5b8ef}
 #myListToggle.active{background:#39264d;border-color:#a78bfa;color:#fff}
 @media(max-width:600px){.selectTools select{min-width:calc(50% - 5px)}.spotlight{margin-top:17px}.navlinks{gap:5px}.navlink{padding:7px 8px}.heroBox{padding:24px 20px}}
+
+/* Legacy-device performance and compatibility */
+html{scroll-behavior:auto}
+*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.top,.heroBox,.spotlight,.ai-panel,.ai-head,.adbox,.adstat,.card,.ep,.episode,.section,.modalbox{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important}
+body{background:var(--bg)!important}
+.card,.ep,.episode,.section,.heroBox,.modalbox{background:var(--panel,#13131e)!important}
+.heroMascot{filter:none!important}
+.card:hover,.episode:hover{transform:none!important}
+img{content-visibility:auto}
 </style><script src="https://quge5.com/88/tag.min.js" data-zone="307190" async data-cfasync="false"></script>
 </head><body>
 <div class="top"><header class="nav"><a class="brand" href="/">Anime<span>xd</span></a><nav class="navlinks"><a class="navlink" href="/">Home</a><a class="navlink" href="#series">Browse</a><a class="navlink" href="#myList">My List ♡</a><a class="navlink" href="#episodes">Latest</a><a class="navlink" href="/credits.html">Credits</a></nav></header></div>
